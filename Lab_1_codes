@@ -1,0 +1,60 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("data.csv")
+
+def explore(df):
+    # Kích thước dữ liệu
+    print(df.shape)
+
+    # Thống kê mô tả
+    print(df.describe())
+
+    # Kiểm tra giá trị thiếu
+    print(df.isnull().sum())
+explore(df)
+
+def lost_data(df):
+    df.fillna({ "Price": df["Price"].mean() }, inplace=True)
+    df.fillna({ "StockQuantity": df["StockQuantity"].median() }, inplace=True)
+    df.fillna({ "Category": df["Category"].mode()[0] }, inplace=True)
+    print("Sau khi xử lý:")
+    print(df.isnull().sum())
+
+    #Dropna
+    df_drop = df.dropna()
+    print("\nSau khi xử lý:")
+    print(df_drop.isnull().sum())
+lost_data(df)
+
+def error_data(df):
+        # Giá không hợp lệ
+    df = df[df["Price"] > 0]
+
+    # StockQuantity không hợp lệ
+    df = df[df["StockQuantity"] >= 0]
+
+    # Rating hợp lệ (0–5)
+    df = df[(df["Rating"] >= 0) & (df["Rating"] <= 5)]
+    print("\nSau khi xử lý lỗi:")
+    print(df.describe())
+error_data(df)
+
+def smooth_data(df):
+   df["Price_Smooth"] = df["Price"].rolling(window=3).mean()
+smooth_data(df)
+
+plt.plot(df["Price"], label="Original Price")
+plt.plot(df["Price_Smooth"], label="Smoothed Price")
+
+plt.legend()
+plt.show()
+
+def data_norm(df):
+    df["Category"] = df["Category"].str.lower()
+    df["Description"] = df["Description"].str.strip()
+    usd_to_vnd = 24000
+    df["Price_VND"] = df["Price"] * usd_to_vnd
+    print("\nDữ liệu sau khi chuẩn hóa:")
+    print(df[["Category", "Description", "Price", "Price_VND"]].head())
+data_norm(df)
