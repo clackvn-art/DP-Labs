@@ -1,0 +1,144 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+#load data
+df = pd.read_csv("Housing.csv")
+
+def Bai_1():
+    #in thống kê mô tả
+    print(df.shape)
+    print(df.isnull().sum())
+    print(df.describe())
+
+    #Boxplot
+    df.boxplot()
+    plt.show()
+
+    #scatter plot
+    plt.scatter(df["dien_tich"], df["gia"])
+    plt.show()
+
+    #IQR
+    Q1 = df["gia"].quantile(0.25)
+    Q3 = df["gia"].quantile(0.75)
+    IQR = Q3 - Q1
+
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    outliers_iqr = df[(df["gia"] < lower) | (df["gia"] > upper)]
+
+    #Z-score
+    mean = df["gia"].mean()
+    std = df["gia"].std()
+
+    df["z"] = (df["gia"] - mean) / std
+    outliers_z = df[abs(df["z"]) > 3]
+
+    #so sánh IQR, Z và boxplot
+    print("Số ngoại lệ (IQR):", len(outliers_iqr))
+    print("Số ngoại lệ (Z-score):", len(outliers_z))
+    print("Số ngoại lệ (Boxplot):", len(df[df["gia"] > df["gia"].quantile(0.75) + 1.5 * (df["gia"].quantile(0.75) - df["gia"].quantile(0.25))]))
+
+    #xử lý ngoại lệ
+    df_clean = df[(df["gia"] >= lower) & (df["gia"] <= upper)]
+    print ("Dữ liệu sau khi loại bỏ ngoại lệ:", df_clean.shape)
+
+    #vẽ lại boxplot sau khi loại bỏ ngoại lệ
+    df_clean.boxplot()
+    plt.show()
+Bai_1()
+
+tf = pd.read_csv("iot.csv")
+
+def Bai_2():
+    #set index
+    tf["timestamp"] = pd.to_datetime(tf["timestamp"])
+    tf.set_index("timestamp", inplace=True)
+
+    print(tf.shape)
+    print(tf.isnull().sum())
+    print(tf.describe())
+
+    #line plot temperature
+    tf["temperature"].plot()
+    plt.show()
+
+    #rolling mean
+    rolling_mean = tf["temperature"].rolling(window=10).mean()
+    rolling_std = tf["temperature"].rolling(window=10).std()
+
+    upper = rolling_mean + 3 * rolling_std
+    lower = rolling_mean - 3 * rolling_std
+    outliers = tf[(tf["temperature"] > upper) | (tf["temperature"] < lower)]
+    
+    #Z score
+    mean = tf["temperature"].mean()
+    std = tf["temperature"].std()
+
+    tf["z"] = (tf["temperature"] - mean) / std
+    outliers_z = tf[abs(tf["z"]) > 3]
+
+    #Box và scatter
+    tf.boxplot()
+    tf.plot.scatter(x="temperature", y="humidity")
+    plt.show()
+
+    #so sánh ngoại lệ
+    print ("Số ngoại lệ rolling mean:", len(outliers))
+    print ("Số ngoại lệ (Z-score):", len(outliers_z))
+
+    #xử lý ngoại lệ
+    tf["temperature"] = tf["temperature"].interpolate()
+
+    #vẽ lại
+    tf["temperature"].plot()
+    plt.show()
+Bai_2()
+
+
+def Bai_3():
+    cf = pd.read_csv("Ecommerce.csv")
+
+    #in thống kê mô tả
+    print(cf.shape)
+    print(cf.isnull().sum())
+    print(cf.describe())
+
+    #boxplot
+    cf[["price", "quantity", "rating"]].boxplot()
+    plt.show()
+
+    #IQR
+    Q1 = cf["price"].quantile(0.25)
+    Q3 = cf["price"].quantile(0.75)
+    IQR = Q3 - Q1
+
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    outliers_iqr = cf[(cf["price"] < lower) | (cf["price"] > upper)]
+    print("Số ngoại lệ (IQR):", len(outliers_iqr))
+
+    #Z-score
+    mean = cf["price"].mean()
+    std = cf["price"].std()
+    cf["z"] = (cf["price"] - mean) / std
+
+    outliers_z = cf[abs(cf["z"]) > 3]
+    print("Số ngoại lệ (Z-score):", len(outliers_z))
+
+    #scatterplot
+    plt.scatter(cf["price"], cf["quantity"])
+    plt.show()
+
+    #Xử lý ngoại lệ
+    cf = cf[cf["price"] > 0]
+    cf = cf[cf["rating"] <= 5]
+    cf = cf[cf["quantity"] >= 0]
+
+    cf["price"] = cf["price"].clip(lower, upper)
+
+    #Vẽ lại
+    cf.boxplot()
+    cf.plot.scatter(x="price", y="quantity")
+    plt.show()
+Bai_3()
