@@ -1,0 +1,47 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+def GD_1():
+
+#Giai đoạn 1, yêu cầu 1
+    df = pd.read_csv("data.csv")
+    print (df.describe())
+    print (df.isnull().sum())
+    print (df.duplicated().sum())
+
+    sns.histplot(df["Price"], kde=True)
+    plt.show()
+    sns.boxplot(x=df["Price"])
+    plt.show()
+    sns.violinplot(x=df["Price"])
+    plt.show()
+
+#Giai đoạn 1, yêu cầu 2
+    # numerical → median
+    for col in df.select_dtypes(include="number"):
+        df[col] = df[col].fillna(df[col].median())
+
+    # categorical → mode
+    for col in df.select_dtypes(include="object"):
+        df[col] = df[col].fillna(df[col].mode()[0])
+
+    # price
+    df = df[df["Price"] > 0]
+    # stock
+    df = df[df["StockQuantity"] >= 0]
+    # rating
+    df = df[(df["Rating"] >= 1) & (df["Rating"] <= 5)]
+
+    df["Category"] = df["Category"].str.lower().str.strip()
+    df["Description"] = df["Description"].str.lower()
+    df["Description"] = df["Description"].str.replace(r"[^\w\s]", "", regex=True)
+    
+    df = df.drop_duplicates()
+
+    print ("Sau khi xử lý:")
+    print(df.describe())
+    print (df.isnull().sum())
+    print (df.duplicated().sum())
+GD_1()
