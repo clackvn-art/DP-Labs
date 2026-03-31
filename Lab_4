@@ -1,0 +1,201 @@
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
+def hotel():
+    #nạp và kiểm tra dữ liệu thiếu
+    df = pd.read_csv("Hotel.csv")
+
+    print(df.isnull().sum())
+
+    #Label encoding
+    le = LabelEncoder()
+    df["hotel_name"] = le.fit_transform(df["hotel_name"])
+
+    #tiền xử lý văn bản
+    nltk.download('punkt_tab', quiet=True)
+    nltk.download('stopwords', quiet=True)
+
+    stop_words = set(stopwords.words('english'))
+
+    def preprocess(text):
+        text = str(text).lower()
+        tokens = word_tokenize(text)
+        tokens = [w for w in tokens if w.isalnum()]
+        tokens = [w for w in tokens if w not in stop_words]
+        return " ".join(tokens)
+
+    df["clean_review"] = df["review_text"].apply(preprocess)
+
+    #TF-IDF
+    tfidf = TfidfVectorizer(ngram_range=(1,2))
+
+    X = tfidf.fit_transform(df["clean_review"])
+
+    print(X.shape)
+
+    #tìm 5 từ gần nghĩa với “sạch sẽ”.
+    # lấy danh sách từ
+    words = tfidf.get_feature_names_out()
+
+    # vector của từ "sạch sẽ"
+    if "sạch sẽ" in words:
+        target_idx = list(words).index("sạch sẽ")
+        # tính similarity
+        target_vec = X[:, target_idx].toarray()
+        similarities = cosine_similarity(target_vec.T, X.T)[0]
+        # lấy top 5
+        top_indices = similarities.argsort()[-6:-1][::-1]
+
+        for i in top_indices:
+            print(words[i])
+    else:
+        print("Từ 'sạch sẽ' không có trong từ điển.")
+
+    print(df.isnull().sum())
+# hotel()
+
+def match():
+    #nạp dữ liệu
+    df = pd.read_csv("Match.csv")
+
+    #Label encoding
+    le = LabelEncoder()
+    df["team"] = le.fit_transform(df["team"])
+    
+    #tiền xử lý văn bản
+    nltk.download('punkt_tab', quiet=True)
+    nltk.download('stopwords', quiet=True)
+
+    stop_words = set(stopwords.words('english'))
+
+    def preprocess(text):
+        text = str(text).lower()
+        tokens = word_tokenize(text)
+        tokens = [w for w in tokens if w.isalnum()]  # bỏ ký tự đặc biệt
+        tokens = [w for w in tokens if w not in stop_words]
+        return " ".join(tokens)
+
+    df["clean_comment"] = df["comment_text"].apply(preprocess)
+
+    #TF-IDF
+    tfidf = TfidfVectorizer(ngram_range=(1,2))
+    X = tfidf.fit_transform(df["clean_comment"])
+    print(X.shape)
+
+    #tìm từ gần nghĩa với “xuất sắc”.
+    words = tfidf.get_feature_names_out()
+
+    # vector của từ "xuất sắc"
+    if "xuất sắc" in words:
+        target_idx = list(words).index("xuất sắc")
+        # tính similarity
+        target_vec = X[:, target_idx].toarray()
+        similarities = cosine_similarity(target_vec.T, X.T)[0]
+        indices = similarities.argsort()[-6:-1][::-1]
+
+        for i in indices:
+            print(words[i])
+    else:
+        print("Từ 'xuất sắc' không có trong từ điển.")
+
+    print(df.isnull().sum())
+# match()
+
+def player():
+    #nạp dữ liệu
+    df = pd.read_csv("Player.csv")
+    print(df.isnull().sum())
+    #Label encoding
+    le = LabelEncoder()
+    df["player_type"] = le.fit_transform(df["player_type"])
+    
+    #tiền xử lý văn bản
+    nltk.download('punkt_tab', quiet=True)
+    nltk.download('stopwords', quiet=True)
+
+    stop_words = set(stopwords.words('english'))
+
+    def preprocess(text):
+        text = str(text).lower()
+        tokens = word_tokenize(text)
+        tokens = [w for w in tokens if w.isalnum()]  # bỏ ký tự đặc biệt
+        tokens = [w for w in tokens if w not in stop_words]
+        return " ".join(tokens)
+
+    df["clean_feedback"] = df["feedback_text"].apply(preprocess)
+
+    #TF-IDF
+    tfidf = TfidfVectorizer()
+    X = tfidf.fit_transform(df["clean_feedback"])
+    print(X.shape)
+
+    #tìm từ gần nghĩa với “đẹp”.
+    words = tfidf.get_feature_names_out()
+
+    # vector của từ "đẹp"
+    if "đẹp" in words:
+        target_idx = list(words).index("đẹp")
+        # tính similarity
+        target_vec = X[:, target_idx].toarray()
+        similarities = cosine_similarity(target_vec.T, X.T)[0]
+        indices = similarities.argsort()[-6:-1][::-1]
+
+        for i in indices:
+            print(words[i])
+    else:
+        print("Từ 'đẹp' không có trong từ điển.")
+
+    print(df.isnull().sum())
+# player()
+
+def album():
+    #nạp dữ liệu
+    df = pd.read_csv("Album.csv")
+    print(df.isnull().sum())
+    #Label encoding
+    le = LabelEncoder()
+    df["genre"] = le.fit_transform(df["genre"])
+    
+    #tiền xử lý văn bản
+    nltk.download('punkt_tab', quiet=True)
+    nltk.download('stopwords', quiet=True)
+
+    stop_words = set(stopwords.words('english'))
+
+    def preprocess(text):
+        text = str(text).lower()
+        tokens = word_tokenize(text)
+        tokens = [w for w in tokens if w.isalnum()]  # bỏ ký tự đặc biệt
+        tokens = [w for w in tokens if w not in stop_words]
+        return " ".join(tokens)
+
+    df["clean_review"] = df["review_text"].apply(preprocess)
+
+    #TF-IDF
+    tfidf = TfidfVectorizer(ngram_range=(1,2))
+    X = tfidf.fit_transform(df["clean_review"])
+    print(X.shape)
+
+    #tìm từ gần nghĩa với “sáng tạo”.
+    words = tfidf.get_feature_names_out()
+
+    # vector của từ "sáng tạo"
+    if "sáng tạo" in words:
+        target_idx = list(words).index("sáng tạo")
+        # tính similarity
+        target_vec = X[:, target_idx].toarray()
+        similarities = cosine_similarity(target_vec.T, X.T)[0]
+        indices = similarities.argsort()[-6:-1][::-1]
+
+        for i in indices:
+            print(words[i])
+    else:
+        print("Từ 'sáng tạo' không có trong từ điển.")
+
+    print(df.isnull().sum())
+# album()
