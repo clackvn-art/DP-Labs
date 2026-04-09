@@ -40,8 +40,82 @@ def GD_1():
     
     df = df.drop_duplicates()
 
-    print ("Sau khi xử lý:")
-    print(df.describe())
-    print (df.isnull().sum())
-    print (df.duplicated().sum())
+    #IQR
+    Q1 = df["Price"].quantile(0.25)
+    Q3 = df["Price"].quantile(0.75)
+    IQR = Q3 - Q1
+
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    outliers_iqr = df[(df["Price"] < lower) | (df["Price"] > upper)]
+
+    #Z-score
+    mean = df["Price"].mean()
+    std = df["Price"].std()
+
+    df["z"] = (df["Price"] - mean) / std
+    outliers_z = df[abs(df["z"]) > 3]
+
+    print("Số ngoại lệ (IQR):", len(outliers_iqr))
+    print("Số ngoại lệ (Z-score):", len(outliers_z))
+
+    #xóa bỏ ngoại lệ
+    df_clean = df[(df["Price"] >= lower) & (df["Price"] <= upper)]
+    print ("Dữ liệu sau khi loại bỏ ngoại lệ:", df_clean.shape)
+
+    #Chuẩn hóa bằng min max
+    minmax = MinMaxScaler()
+    df_minmax = df.copy()
+
+    num_cols = df.select_dtypes(include=np.number).columns
+    df_minmax[num_cols] = minmax.fit_transform(df[num_cols])
+
+    #Chuẩn hóa Z-score
+    zscore = StandardScaler()
+    df_zscore = df.copy()
+    df_zscore[num_cols] = zscore.fit_transform(df[num_cols])
+
+    #Label encoding
+    le = LabelEncoder()
+    df["Location"] = le.fit_transform(df["Location"])
+
+    #TF-IDF
+    nltk.download('punkt', quiet=True)
+    nltk.download('stopwords', quiet=True)
+
+    stop_words = set(stopwords.words('english'))
+
+    def preprocess(text):
+        text = str(text).lower()
+        tokens = word_tokenize(text)
+        tokens = [w for w in tokens if w.isalnum()]
+        tokens = [w for w in tokens if w not in stop_words]
+        return " ".join(tokens)
+
+    df["clean_desc"] = df["Description"].apply(preprocess)
+
+    tfidf = TfidfVectorizer()
+    X = tfidf.fit_transform(df["clean_desc"])
+    print(X.shape)
+
+    # yêu cầu 5
+    # phát hiện dup
+    similarity_matrix = cosine_similarity(X)
+    threshold = 0.8
+    duplicates = []
+
+    for i in range(len(df)):
+        for j in range(i+1, len(df)):
+            if similarity_matrix[i, j] > threshold:
+                duplicates.append((i, j, similarity_matrix[i, j]))
+
+    #merge
+    merged_indices = set()
+
+    for i, j, score in duplicates:
+        merged_indices.add(j)  # giữ i, xóa j
+
+    df_cleaned = df.drop(index=list(merged_indices))
+
+    print("Số dòng sau khi merge:", len(df_cleaned))
 GD_1()
