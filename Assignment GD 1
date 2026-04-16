@@ -2,12 +2,23 @@ import pandas as pd
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, LabelEncoder, OneHotEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+import os
+import cv2
+from scipy.stats import boxcox
+from textblob import TextBlob
+from sklearn.pipeline import Pipeline
+from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 def GD_1():
 #Giai đoạn 1, yêu cầu 1
@@ -124,3 +135,233 @@ def GD_1():
 
     print("Số dòng sau khi merge:", len(df_cleaned))
 GD_1()
+
+def GD_2():
+    df = pd.read_csv("data.csv")
+
+    # 1. Biến đổi nâng cao & feature engineering 
+    # NUMERIC TRANSFORM
+    num_cols = ["Price", "Area", "Num_rooms"]
+
+    for col in num_cols:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+        
+        if abs(df[col].skew()) > 1:
+            df[col + "_log"] = np.log1p(df[col])
+    
+    #date feature
+    df["Transaction_date"] = pd.to_datetime(df["Transaction_date"])
+
+    df["month"] = df["Transaction_date"].dt.month
+    df["quarter"] = df["Transaction_date"].dt.quarter
+    df["year"] = df["Transaction_date"].dt.year
+    
+    #text feature
+    def get_sentiment(text):
+        text = str(text)
+        score = TextBlob(text).sentiment.polarity
+        return score
+
+    def count_words(text):
+        text = str(text)
+        total = len(text.split())
+        return total
+
+    df["word_count"] = df["Description"].apply(count_words)
+
+    def check_luxury(text):
+        text = str(text).lower()
+        if "tiện nghi" in text:
+            return 1
+        else:
+            return 0
+
+    df["tiện nghi"] = df["Description"].apply(check_luxury)
+
+    #image feature
+    def img_mean(path):
+        img = cv2.imread(path)
+        
+        if img is None:
+            return 0
+        
+        return img.mean()
+
+    df["img_brightness"] = df["Image_url"].apply(img_mean)
+    print(df.head())
+
+    # 2. Pipeline hoàn chỉnh
+    X = df.drop("Price", axis=1)
+    y = df["Price"]
+
+    #chia nhóm cột
+    num_cols = ["Area", "Num_rooms", "word_count", "tiện nghi"]
+    cat_cols = ["Location", "Condition", "quarter", "year"]
+    text_cols = "Description"
+
+    #pipeline number
+    num_pipe = Pipeline([
+        ("fill", SimpleImputer(strategy="median")),
+        ("scale", StandardScaler())
+    ])
+
+    #pipeline category
+    cat_pipe = Pipeline([
+        ("fill", SimpleImputer(strategy="most_frequent")),
+        ("onehot", OneHotEncoder(handle_unknown="ignore"))
+    ])
+
+    #pipeline text
+    text_pipe = Pipeline([
+        ("tfidf", TfidfVectorizer(max_features=20))
+    ])
+
+    #gộp pipeline
+    preprocessor = ColumnTransformer([
+        ("num", num_pipe, num_cols),
+        ("cat", cat_pipe, cat_cols),
+        ("text", text_pipe, text_cols)
+    ])
+
+    #train
+    Xt = preprocessor.fit_transform(X)
+    print("Shape train:", Xt.shape)
+
+    #test
+    new_data = X.head(1)
+    Xt_new = preprocessor.transform(new_data)
+    print("Shape new:", Xt_new.shape)
+    print("Consistent:", Xt.shape[1] == Xt_new.shape[1])
+
+    # 3. Mô hình dự báo
+    #chia train 70/30
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y,
+        test_size=0.30,
+        random_state=42
+    )
+
+    #moduel list
+    models = {
+        "LinearRegression": LinearRegression(),
+        "RandomForest": RandomForestRegressor(
+            n_estimators=100,
+            random_state=42
+        ),
+
+    }
+
+    #train moduel gốc
+    for name, model in models.items():
+
+        pipe = Pipeline([
+            ("prep", preprocessor),
+            ("model", model)
+        ])
+
+        pipe.fit(X_train, y_train)
+        pred = pipe.predict(X_test)
+
+        rmse = np.sqrt(mean_squared_error(y_test, pred))
+        mae  = mean_absolute_error(y_test, pred)
+        r2   = r2_score(y_test, pred)
+
+        print("Moduel gốc")
+        print("RMSE:", round(rmse,2))
+        print("MAE :", round(mae,2))
+        print("R2  :", round(r2,4))
+
+    #target log transform
+    print("TARGET LOG TRANSFORM:")
+
+    for name, model in models.items():
+
+        pipe = Pipeline([
+            ("prep", preprocessor),
+            ("model", model)
+        ])
+
+    log_model = TransformedTargetRegressor(
+        regressor=pipe,
+        func=np.log1p,
+        inverse_func=np.expm1
+    )
+
+    log_model.fit(X_train, y_train)
+    pred = log_model.predict(X_test)
+
+    rmse = np.sqrt(mean_squared_error(y_test, pred))
+    mae  = mean_absolute_error(y_test, pred)
+    r2   = r2_score(y_test, pred)
+
+    print("log transform")
+    print("RMSE:", round(rmse,2))
+    print("MAE :", round(mae,2))
+    print("R2  :", round(r2,4))
+
+    # 4. Phân tích đa kịch bản & KPI
+    # Giá trung bình theo khu vực
+    area_avg = df.groupby("Location")["Price"].mean()
+    print("Giá trung bình theo khu vực:")
+    print(area_avg)
+
+    # Top 5% giá cực trị
+    top_cut = df["Price"].quantile(0.95)
+    top_house = df[df["Price"] >= top_cut]
+
+    print("Nhà thuộc top 5% giá cao:")
+    print(top_house[[
+        "Location",
+        "Price",
+        "Num_rooms"
+    ]].head())
+
+    # làm sạch giá
+    df["Price"] = pd.to_numeric(df["Price"], errors="coerce")
+    df["Area"] = pd.to_numeric(df["Area"], errors="coerce")
+
+    df = df.dropna(subset=["Price", "Area"])
+
+    #metric mới
+    # log-price-index
+    df["log_price_index"] = np.log1p(df["Price"])
+
+    # price-per-m2
+    df["price_per_m2"] = df["Price"] / df["Area"]
+
+    # luxury-score
+    df["luxury_score"] = (
+        df["tiện nghi"] * 2 +
+        (df["Num_rooms"] >= 4).astype(int) +
+        (df["img_brightness"] > df["img_brightness"].mean()).astype(int)
+    )
+
+    # 5. Trực quan hóa & insight nghiệp vụ
+    # Tạo transformed columns
+    df["Price_log"] = np.log1p(df["Price"])
+    df["Area_log"] = np.log1p(df["Area"])
+
+    #Biểu đồ Raw 
+    sns.histplot(df["Price"], kde=True)
+    plt.title("Raw Price")
+    plt.show()
+
+    #Biểu đồ transformed
+    sns.histplot(df["Price_log"], kde=True)
+    plt.title("Log Price")
+    plt.show()
+
+    #dashboard mini
+    # (a) Phân phối giá
+    plt.figure(figsize=(6,4))
+    sns.boxplot(x=df["Price"])
+    plt.title("Price Distribution + Outlier")
+    plt.show()
+
+    # (b) Giá theo khu vực
+    plt.figure(figsize=(8,4))
+    sns.barplot(data=df, x="Location", y="Price")
+    plt.title("Average Price by Location")
+    plt.xticks(rotation=45)
+    plt.show()
+GD_2()
